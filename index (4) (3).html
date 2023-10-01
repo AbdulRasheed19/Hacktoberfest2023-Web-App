@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding: 0;
+      }
+
+      #loading-spinner {
+        border: 16px solid #f3f3f3;
+        border-top: 16px solid #3498db;
+        border-radius: 50%;
+        width: 120px;
+        height: 120px;
+        animation: spin 2s linear infinite;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 20px auto;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        padding: 20px;
+      }
+
+      #active-member-count {
+        background-color: #f8f9fa;
+        padding: 20px;
+        margin-bottom: 20px;
+        font-size: 20px;
+        text-align: center;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+      }
+
+      .post {
+        display: flex;
+        margin: 20px 0;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        background-color: #fff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        margin-right: 10px;
+      }
+
+      .post-content {
+        flex: 1;
+      }
+
+      .post h3 {
+        font-size: 18px;
+        margin: 0;
+      }
+
+      .post p {
+        margin: 5px 0;
+      }
+
+      .post h4 {
+        font-size: 16px;
+        margin-top: 10px;
+      }
+
+      .event-details {
+        flex: 1;
+      }
+
+      .contentt img {
+        height: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-spinner"></div>
+    <div class="container">
+      <div id="active-member-count"></div>
+      <div id="members-container"></div>
+    </div>
+    <script>
+      async function fetchData(url) {
+        try {
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            throw new Error(`Error fetching data: ${response.status}`);
+          }
+
+          return await response.json();
+        } catch (error) {
+          console.error(error);
+          return null; // You can return null or handle the error as needed
+        }
+      }
+
+      async function replaceNewlinesWithBreaks(text) {
+        return text.replace(/\n/g, "<br>");
+      }
+
+      async function replaceImageTagsWithImages(text) {
+        return text.replace(
+          /<img.*?src=["'](.*?)["'].*?>/g,
+          (match, imageUrl) => {
+            return `<img src="${imageUrl}" alt="Image" width="30" height="30" />`;
+          }
+        );
+      }
+
+      async function populateEventsData() {
+        const eventsContainer = document.querySelector("#active-member-count");
+
+        const eventsData = await fetchData("https://lyramew-bot-production.up.railway.app/events");
+
+        if (eventsData === null) {
+          // Handle the error here, e.g., display an error message
+          console.error("Failed to fetch events data.");
+          document.getElementById("loading-spinner").style.display = "none";
+          return;
+        }
+
+        if (eventsData.length === 0) {
+          const noEventsMessage = document.createElement("p");
+          noEventsMessage.textContent = "No Events right now";
+          eventsContainer.appendChild(noEventsMessage);
+        } else {
+          eventsData.forEach((event) => {
+            const eventPost = document.createElement("div");
+            eventPost.className = "post";
+
+            const avatarImg = document.createElement("img");
+            avatarImg.src = event.avatarURL;
+            avatarImg.alt = event.username;
+            avatarImg.className = "avatar";
+            eventPost.appendChild(avatarImg);
+
+            const postContent = document.createElement("div");
+            postContent.className = "event-details";
+            postContent.innerHTML = `<h3>${event.username}</h3>
+                      <p>Date: ${event.createdAt}</p>
+                      <h4>${event.name}</h4>
+                      <p>Starts At: ${event.startAt}</p>
+                      <p>${replaceImageTagsWithImages(event.content)}</p>`;
+            eventsContainer.appendChild(eventPost);
+          });
+        }
+
+        if (eventsData.length > 0) {
+          const firstEvent = eventsData[0];
+          eventsContainer.innerHTML = `
+          <p>Starts At: ${firstEvent.startAt}</p>
+            <p>Name: ${firstEvent.name}</p>
+            <p>Username: ${firstEvent.username}</p>
+          `;
+        }
+      }
+
+      async function populateMembersData() {
+        const container = document.querySelector("#members-container");
+
+        const membersData = await fetchData("https://lyramew-bot-production.up.railway.app/messages");
+
+        if (membersData === null) {
+          console.error("Failed to fetch members data.");
+          document.getElementById("loading-spinner").style.display = "none";
+          return;
+        }
+
+        membersData.forEach(async (member) => {
+          const memberDiv = document.createElement("div");
+          memberDiv.className = "post";
+
+          const avatarImg = document.createElement("img");
+          avatarImg.src = member.avatarURL;
+          avatarImg.alt = member.username;
+          avatarImg.className = "avatar";
+          memberDiv.appendChild(avatarImg);
+
+          const postContent = document.createElement("div");
+          postContent.className = "event-details";
+          postContent.innerHTML = `<h3>${member.username}</h3>
+                        <p>Date: ${member.createdAt}</p>
+                        <h4>${member.name}</h4>
+                        <p>${await replaceNewlinesWithBreaks(member.content)}</p>`;
+          memberDiv.appendChild(postContent);
+
+          container.appendChild(memberDiv);
+        });
+
+        document.getElementById("loading-spinner").style.display = "none";
+      }
+
+      window.addEventListener("DOMContentLoaded", async (event) => {
+        document.getElementById("loading-spinner").style.display = "block";
+        await populateEventsData();
+        await populateMembersData();
+      });
+    </script>
+  </body>
+</html>
